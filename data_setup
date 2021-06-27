@@ -1,0 +1,24 @@
+LOAD CSV WITH HEADERS FROM 'file:///records.csv' 
+AS row MERGE (p:Person {Name: row.FirstName +" "+row.LastName, 
+                        Email:row.EmailAddress, 
+                        StartDate:row.CurrentEmploymentStartDate, 
+                        Position:row.CurrentEmploymentTitle, 
+                        Sector:row.CurrentEmploymentType})
+RETURN p
+
+LOAD CSV WITH HEADERS FROM 'file:///emails.csv' AS row
+WITH [item in split(replace(row.Date, " ", "/"), "/") | toInteger(item)] as d, 
+    [item in split(replace(row.Date, " ", ":"), ":") | toInteger(item)] as t, row
+WITH datetime({day:d[1], month:d[0], year:d[2], hour:t[1], minute:t[2]}) as date, row
+MERGE (m:Mail {From: row.From, To: row.To, Date: date, Subject:row.Subject})
+return m
+
+MATCH (a:Person), (b:Mail) 
+   WHERE a.Email = b.From
+CREATE (a)-[: SENT]->(b) 
+RETURN a, b 
+
+MATCH (a:Mail), (b:Person) 
+   WHERE a.To CONTAINS b.Email 
+CREATE (a)-[: RECEIVED]->(b) 
+RETURN a, b
